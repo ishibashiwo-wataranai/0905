@@ -3,74 +3,1340 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Hackatsuon Starter</title>
+<title>熊出没情報 – 気仙地域</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
   :root {
-    --ink: #1b2a3a;      /* 三陸の夜の海 */
-    --paper: #f6f4ef;    /* 帆布 */
-    --accent: #c8451f;   /* 大漁旗の朱 */
-    --wave: #2e6f8e;     /* 昼の海 */
+    --bg: #f4f0eb;
+    --surface: #ffffff;
+    --border: #e0d8ce;
+    --ink: #2d2417;
+    --muted: #7a6a55;
+    --header-bg: #3b2a1a;
+    --accent: #d95f02;
+    --accent-light: #fff3e0;
   }
-  * { margin: 0; padding: 0; box-sizing: border-box; }
+
   body {
-    font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
-    background: var(--paper);
+    font-family: "Hiragino Kaku Gothic Pro", "ヒラギノ角ゴ Pro W3", "Yu Gothic", Meiryo, sans-serif;
+    background: var(--bg);
     color: var(--ink);
-    min-height: 100svh;
-    display: grid;
-    place-items: center;
-    padding: 2rem;
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
   }
-  main { max-width: 34rem; text-align: center; }
-  .flag {
-    display: inline-block;
-    background: var(--accent);
-    color: var(--paper);
-    font-weight: 700;
-    letter-spacing: 0.35em;
-    padding: 0.4rem 1.2rem 0.4rem 1.55rem;
-    margin-bottom: 2rem;
+
+  /* ── ヘッダー ── */
+  header {
+    background: var(--header-bg);
+    color: #fff;
+    padding: 0 14px;
+    height: 52px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    z-index: 10;
   }
-  h1 {
-    font-size: clamp(1.8rem, 6vw, 2.6rem);
-    line-height: 1.4;
-    margin-bottom: 1.2rem;
+  header h1 { font-size: 1.05rem; font-weight: 700; }
+  header .areas-tag { font-size: 0.68rem; opacity: 0.7; margin-left: 2px; }
+  header .header-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+  header .time-badge {
+    font-size: 0.68rem; opacity: 0.75;
+    background: rgba(255,255,255,0.12);
+    border-radius: 20px; padding: 2px 8px;
+    white-space: nowrap;
   }
-  h1 em {
-    font-style: normal;
-    color: var(--wave);
-    border-bottom: 4px solid var(--accent);
+  .add-btn-header {
+    background: var(--accent); color: #fff;
+    border: none; border-radius: 6px;
+    padding: 5px 11px; font-size: 0.78rem; font-weight: 700;
+    cursor: pointer; white-space: nowrap;
+    font-family: inherit;
   }
-  p { line-height: 1.9; color: #445; }
-  .hint {
-    margin-top: 2.5rem;
-    font-size: 0.85rem;
-    text-align: left;
-    background: #fff;
-    border-left: 4px solid var(--wave);
-    padding: 1rem 1.2rem;
+  .add-btn-header:hover { background: #c0500a; }
+
+  /* ── メインレイアウト ── */
+  .main {
+    flex: 1; display: grid;
+    grid-template-columns: 1fr 360px;
+    min-height: 0;
   }
-  code {
-    background: var(--ink);
-    color: var(--paper);
-    padding: 0.15em 0.5em;
-    border-radius: 3px;
-    font-size: 0.9em;
+  @media (max-width: 768px) {
+    .main { grid-template-columns: 1fr; grid-template-rows: 45dvh 1fr; }
   }
+
+  #map { width: 100%; height: 100%; min-height: 0; }
+
+  /* ── サイドバー ── */
+  .sidebar {
+    background: var(--bg); border-left: 1px solid var(--border);
+    overflow-y: auto; padding: 12px 12px 20px;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  @media (max-width: 768px) {
+    .sidebar { border-left: none; border-top: 1px solid var(--border); }
+  }
+
+  /* ── サイドバー：タブ ── */
+  .tabs {
+    display: flex; border-bottom: 2px solid var(--border);
+    margin: 0 -12px; padding: 0 12px;
+  }
+  .tab-btn {
+    flex: 1; padding: 8px 0; font-size: 0.8rem; font-weight: 700;
+    border: none; background: none; cursor: pointer; color: var(--muted);
+    border-bottom: 2px solid transparent; margin-bottom: -2px;
+    font-family: inherit; transition: color 0.15s;
+  }
+  .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  .tab-pane { display: none; flex-direction: column; gap: 8px; padding-top: 8px; }
+  .tab-pane.active { display: flex; }
+
+  /* ── 注意書き ── */
+  .notice {
+    background: var(--accent-light); border: 1px solid #ffcc80;
+    border-radius: 8px; padding: 9px 11px;
+    font-size: 0.72rem; color: #5a3e00; line-height: 1.55;
+  }
+  .notice strong { display: block; margin-bottom: 2px; font-size: 0.76rem; }
+
+  /* ── エリアカード ── */
+  .area-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; overflow: hidden;
+    transition: box-shadow 0.15s;
+  }
+  .area-card:hover { box-shadow: 0 2px 10px rgba(0,0,0,0.09); }
+  .area-card.active { border-color: var(--accent); }
+
+  .card-header {
+    display: flex; align-items: center; gap: 9px;
+    padding: 10px 12px; cursor: pointer; user-select: none;
+  }
+  .card-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+  .card-name { font-size: 0.92rem; font-weight: 700; }
+  .card-pref { font-size: 0.7rem; color: var(--muted); margin-left: 3px; }
+  .card-count {
+    margin-left: auto; font-size: 0.68rem; font-weight: 700;
+    background: var(--accent); color: #fff;
+    border-radius: 20px; padding: 2px 7px; display: none;
+  }
+  .card-count.visible { display: inline-block; }
+  .card-arrow { font-size: 0.85rem; color: var(--muted); transition: transform 0.2s; margin-left: 4px; }
+  .area-card.open .card-arrow { transform: rotate(90deg); }
+
+  .card-links {
+    display: none; flex-direction: column; gap: 5px;
+    border-top: 1px solid var(--border); background: #f9f6f2; padding: 8px;
+  }
+  .area-card.open .card-links { display: flex; }
+
+  .ext-link {
+    display: flex; align-items: center; gap: 8px;
+    padding: 7px 9px; background: var(--surface);
+    border: 1px solid var(--border); border-radius: 7px;
+    text-decoration: none; color: var(--ink);
+    font-size: 0.77rem; line-height: 1.3; transition: background 0.1s;
+  }
+  .ext-link:hover { background: #f0ece4; }
+  .link-badge {
+    flex-shrink: 0; width: 24px; height: 24px; border-radius: 5px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.62rem; font-weight: 700; color: #fff;
+  }
+  .badge-kuma    { background: #2e7d32; }
+  .badge-kumamap { background: #1565c0; }
+  .badge-pref    { background: #6d4c41; }
+  .badge-city    { background: #455a64; }
+  .ext-link-text { flex: 1; }
+  .ext-link-arrow { color: var(--muted); font-size: 0.68rem; }
+
+  /* ── 出没情報リスト ── */
+  .sighting-count-bar {
+    font-size: 0.75rem; color: var(--muted); padding: 2px 0;
+  }
+  .sighting-count-bar strong { color: var(--ink); }
+
+  .sighting-item {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 9px 11px;
+    font-size: 0.78rem; line-height: 1.5;
+    display: flex; flex-direction: column; gap: 3px;
+  }
+  .sighting-item .s-header {
+    display: flex; align-items: center; gap: 6px;
+  }
+  .s-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .s-area { font-weight: 700; font-size: 0.8rem; }
+  .s-date { color: var(--muted); font-size: 0.72rem; margin-left: auto; }
+  .s-location { color: var(--muted); }
+  .s-detail { }
+  .s-actions { margin-top: 4px; display: flex; gap: 6px; }
+  .s-locate-btn, .s-delete-btn {
+    border: 1px solid var(--border); background: #f9f6f2;
+    border-radius: 5px; padding: 3px 8px; font-size: 0.7rem;
+    cursor: pointer; font-family: inherit; color: var(--ink);
+  }
+  .s-locate-btn:hover { background: #e8f5e9; border-color: #a5d6a7; }
+  .s-delete-btn:hover { background: #fce4ec; border-color: #f48fb1; color: #c62828; }
+
+  .empty-msg {
+    text-align: center; padding: 24px 0;
+    color: var(--muted); font-size: 0.8rem; line-height: 1.7;
+  }
+  .empty-msg .empty-icon { font-size: 2rem; display: block; margin-bottom: 6px; }
+
+  /* ── PDF インポート ── */
+  .pdf-import-area {
+    background: #f0ece4; border: 1px solid var(--border);
+    border-radius: 8px; padding: 10px 12px;
+    display: flex; flex-direction: column; gap: 7px;
+  }
+  .pdf-import-btn {
+    width: 100%; padding: 8px; border: 1px solid #bfae9e;
+    background: var(--surface); border-radius: 7px;
+    font-size: 0.8rem; font-weight: 700; cursor: pointer;
+    font-family: inherit; color: var(--ink); text-align: center;
+  }
+  .pdf-import-btn:hover { background: #e8e0d5; }
+  .pdf-progress {
+    display: none; font-size: 0.73rem; color: var(--muted);
+    line-height: 1.5; padding: 4px 2px;
+  }
+  .pdf-hint {
+    font-size: 0.68rem; color: var(--muted); line-height: 1.5;
+  }
+
+  /* ── 入力フォームモーダル ── */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.45); z-index: 1000;
+    align-items: center; justify-content: center;
+    padding: 16px;
+  }
+  .modal-overlay.open { display: flex; }
+
+  .modal {
+    background: var(--surface); border-radius: 14px;
+    width: 100%; max-width: 420px; max-height: 92dvh;
+    overflow-y: auto;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.25);
+  }
+  .modal-header {
+    padding: 14px 16px 10px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .modal-header h2 { font-size: 0.95rem; font-weight: 700; }
+  .modal-close {
+    margin-left: auto; background: none; border: none;
+    font-size: 1.1rem; cursor: pointer; color: var(--muted);
+    line-height: 1;
+  }
+  .modal-body { padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; }
+
+  .form-group { display: flex; flex-direction: column; gap: 4px; }
+  .form-label { font-size: 0.75rem; font-weight: 700; color: var(--muted); }
+  .form-input, .form-select, .form-textarea {
+    padding: 8px 10px; border: 1px solid var(--border); border-radius: 7px;
+    font-size: 0.85rem; font-family: inherit; color: var(--ink);
+    background: var(--surface); width: 100%;
+    transition: border-color 0.15s;
+  }
+  .form-input:focus, .form-select:focus, .form-textarea:focus {
+    outline: none; border-color: var(--accent);
+  }
+  .form-textarea { resize: vertical; min-height: 60px; }
+
+  .pos-picker {
+    border: 1px dashed var(--border); border-radius: 7px;
+    padding: 10px; background: #faf8f5;
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .pos-picker-label { font-size: 0.72rem; color: var(--muted); }
+  .pos-display {
+    font-size: 0.78rem; font-weight: 700; color: var(--ink);
+    min-height: 1.2em;
+  }
+  .pos-display.unset { color: var(--muted); font-weight: 400; }
+  .pos-pick-btn {
+    border: 1px solid var(--accent); background: var(--accent-light);
+    border-radius: 6px; padding: 6px 10px;
+    font-size: 0.75rem; font-weight: 700; color: var(--accent);
+    cursor: pointer; font-family: inherit; text-align: center;
+  }
+  .pos-pick-btn:hover { background: #ffe0b2; }
+  .pos-pick-btn.picking { background: #fff9c4; border-color: #f9a825; color: #5d4037; }
+
+  .modal-footer {
+    padding: 10px 16px 14px; display: flex; gap: 8px;
+    border-top: 1px solid var(--border);
+  }
+  .btn-cancel {
+    flex: 1; padding: 9px; border: 1px solid var(--border);
+    background: var(--bg); border-radius: 8px;
+    font-size: 0.85rem; cursor: pointer; font-family: inherit; color: var(--ink);
+  }
+  .btn-submit {
+    flex: 2; padding: 9px; border: none;
+    background: var(--accent); color: #fff; border-radius: 8px;
+    font-size: 0.85rem; font-weight: 700; cursor: pointer; font-family: inherit;
+  }
+  .btn-submit:hover { background: #c0500a; }
+  .btn-submit:disabled { background: #bdb0a4; cursor: default; }
+
+  /* 地図ピック中オーバーレイ */
+  #map.picking-mode { cursor: crosshair !important; }
+  #map.picking-mode .leaflet-interactive { cursor: crosshair !important; }
+
+  .pick-hint {
+    display: none; position: absolute; bottom: 12px; left: 50%;
+    transform: translateX(-50%); z-index: 1000;
+    background: rgba(50,30,10,0.85); color: #fff;
+    padding: 7px 14px; border-radius: 20px; font-size: 0.8rem;
+    pointer-events: none; white-space: nowrap;
+  }
+  #map-container { position: relative; }
+  #map-container.picking .pick-hint { display: block; }
+
+  /* Leaflet popup */
+  .leaflet-popup-content { font-family: "Hiragino Kaku Gothic Pro", sans-serif; min-width: 200px; }
+  .popup-title { font-size: 0.9rem; font-weight: 700; margin-bottom: 2px; }
+  .popup-sub  { font-size: 0.72rem; color: #7a6a55; margin-bottom: 6px; }
+  .popup-link {
+    display: block; padding: 5px 8px; margin: 3px 0;
+    background: #f5f0eb; border-radius: 5px;
+    text-decoration: none; color: #2d2417; font-size: 0.75rem;
+  }
+  .popup-link:hover { background: #e8e0d5; }
+  .popup-delete-btn {
+    margin-top: 6px; width: 100%; padding: 5px;
+    border: 1px solid #f48fb1; background: #fce4ec;
+    border-radius: 5px; cursor: pointer; font-size: 0.72rem; color: #c62828;
+    font-family: inherit;
+  }
+  .popup-delete-btn:hover { background: #f8bbd0; }
 </style>
 </head>
 <body>
-<main>
-  <span class="flag">出港準備完了</span>
-  <h1>このページが見えたら、<br><em>デプロイ成功</em>です</h1>
-  <p>
-    ここは、あなたのアプリの出発点。<br>
-    このページを、あなたの作りたいものに書き換えていきましょう。
-  </p>
-  <div class="hint">
-    Claude Code にこう伝えてみてください:<br>
-    <code>index.html を◯◯なアプリに書き換えて</code>
+
+<header>
+  <span style="font-size:1.3rem;line-height:1">🐻</span>
+  <div>
+    <h1>熊出没情報</h1>
+    <div class="areas-tag">陸前高田・大船渡・住田・気仙沼</div>
   </div>
-</main>
+  <div class="header-right">
+    <span class="time-badge" id="update-time"></span>
+    <button class="add-btn-header" id="open-form-btn">＋ 出没情報を追加</button>
+  </div>
+</header>
+
+<div class="main">
+  <div id="map-container">
+    <div id="map"></div>
+    <div class="pick-hint">📍 出没場所をクリックして選択</div>
+  </div>
+
+  <div class="sidebar">
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="areas">エリア情報</button>
+      <button class="tab-btn" data-tab="sightings">出没情報 <span id="sidebar-count" style="display:none"></span></button>
+    </div>
+
+    <!-- エリア情報タブ -->
+    <div class="tab-pane active" id="tab-areas">
+      <div class="notice">
+        <strong>⚠️ 外部情報サービスへのリンク集</strong>
+        各エリアから最新情報を外部サービスで確認できます。地図マーカーをクリックしても表示されます。
+      </div>
+      <div id="area-cards"></div>
+    </div>
+
+    <!-- 出没情報タブ -->
+    <div class="tab-pane" id="tab-sightings">
+      <div class="pdf-import-area">
+        <button class="pdf-import-btn" id="pdf-import-btn">📄 陸前高田市PDFから読み込み</button>
+        <input type="file" id="pdf-file-input" accept=".pdf" style="display:none">
+        <div class="pdf-progress" id="pdf-progress"></div>
+        <div class="pdf-hint">陸前高田市HPの「ツキノワグマ目撃等一覧」PDFに対応しています。</div>
+      </div>
+      <div class="pdf-import-area">
+        <button class="pdf-import-btn" id="miyagi-pdf-import-btn">📄 宮城県PDFから気仙沼市データを読み込み</button>
+        <input type="file" id="miyagi-pdf-file-input" accept=".pdf" style="display:none">
+        <div class="pdf-progress" id="miyagi-pdf-progress"></div>
+        <div class="pdf-hint">宮城県HPの「ツキノワグマ目撃等情報集計表」PDF対応。気仙沼市の記録のみ取り込みます。</div>
+      </div>
+      <div class="pdf-import-area">
+        <button class="pdf-import-btn" id="sumita-pdf-import-btn">📄 住田町PDFから読み込み</button>
+        <input type="file" id="sumita-pdf-file-input" accept=".pdf" style="display:none">
+        <div class="pdf-progress" id="sumita-pdf-progress"></div>
+        <div class="pdf-hint">住田町の「ツキノワグマ出没状況一覧表」PDFに対応しています。</div>
+      </div>
+      <div class="sighting-count-bar" id="sighting-count-bar"></div>
+      <div id="sighting-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 出没情報入力モーダル -->
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <span style="font-size:1.1rem">🐻</span>
+      <h2>出没情報を追加</h2>
+      <button class="modal-close" id="modal-close">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">エリア</label>
+        <select class="form-select" id="f-area">
+          <option value="rikuzentakata">陸前高田市（岩手県）</option>
+          <option value="ofunato">大船渡市（岩手県）</option>
+          <option value="sumita">住田町（岩手県）</option>
+          <option value="kesennuma">気仙沼市（宮城県）</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">日時</label>
+        <input type="datetime-local" class="form-input" id="f-datetime" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">場所の詳細</label>
+        <input type="text" class="form-input" id="f-location" placeholder="例: 気仙大工町付近、国道340号沿い" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">状況・詳細</label>
+        <textarea class="form-textarea" id="f-detail" placeholder="例: 成獣1頭、目撃のみ。農地付近を北上中。"></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">地図上の位置（任意）</label>
+        <div class="pos-picker">
+          <div class="pos-picker-label">地図をクリックして出没場所を指定できます</div>
+          <div class="pos-display unset" id="pos-display">未設定</div>
+          <button class="pos-pick-btn" id="pos-pick-btn">🗺️ 地図をクリックして位置を指定</button>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" id="btn-cancel">キャンセル</button>
+      <button class="btn-submit" id="btn-submit">追加する</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ── データ定義 ── */
+const AREAS = [
+  {
+    id: 'rikuzentakata', name: '陸前高田市', prefecture: '岩手県',
+    lat: 39.016, lng: 141.625, color: '#c0703a',
+    links: [
+      { label: 'KumaWatch – 陸前高田市の出没情報マップ', badge: 'KW', cls: 'badge-kuma',
+        url: 'https://kuma-watch.jp/place/%E5%B2%A9%E6%89%8B%E7%9C%8C/%E9%99%B8%E5%89%8D%E9%AB%98%E7%94%B0%E5%B8%82' },
+      { label: 'クママップ – 陸前高田市', badge: 'MM', cls: 'badge-kumamap',
+        url: 'https://kumamap.com/ja/areas/iwate/rikuzentakata' },
+      { label: '岩手県 – ツキノワグマ出没状況', badge: '岩', cls: 'badge-pref',
+        url: 'https://www.pref.iwate.jp/kurashikankyou/shizen/yasei/1049881/1056087.html' }
+    ]
+  },
+  {
+    id: 'ofunato', name: '大船渡市', prefecture: '岩手県',
+    lat: 39.082, lng: 141.725, color: '#2e7d32',
+    links: [
+      { label: 'KumaWatch – 大船渡市の出没情報マップ', badge: 'KW', cls: 'badge-kuma',
+        url: 'https://kuma-watch.jp/place/%E5%B2%A9%E6%89%8B%E7%9C%8C/%E5%A4%A7%E8%88%B9%E6%B8%A1%E5%B8%82' },
+      { label: 'クママップ – 大船渡市', badge: 'MM', cls: 'badge-kumamap',
+        url: 'https://kumamap.com/ja/areas/iwate/ofunato' },
+      { label: '大船渡市公式 – Bearsアプリのご案内', badge: '市', cls: 'badge-city',
+        url: 'https://www.city.ofunato.iwate.jp/archive/p20260406162955' },
+      { label: '岩手県 – ツキノワグマ出没状況', badge: '岩', cls: 'badge-pref',
+        url: 'https://www.pref.iwate.jp/kurashikankyou/shizen/yasei/1049881/1056087.html' }
+    ]
+  },
+  {
+    id: 'sumita', name: '住田町', prefecture: '岩手県',
+    lat: 39.147, lng: 141.541, color: '#1565c0',
+    links: [
+      { label: 'KumaWatch – 住田町の出没情報マップ', badge: 'KW', cls: 'badge-kuma',
+        url: 'https://kuma-watch.jp/place/%E5%B2%A9%E6%89%8B%E7%9C%8C/%E4%BD%8F%E7%94%B0%E7%94%BA' },
+      { label: 'クママップ – 住田町', badge: 'MM', cls: 'badge-kumamap',
+        url: 'https://kumamap.com/ja/areas/iwate/sumita' },
+      { label: '岩手県 – ツキノワグマ出没状況', badge: '岩', cls: 'badge-pref',
+        url: 'https://www.pref.iwate.jp/kurashikankyou/shizen/yasei/1049881/1056087.html' }
+    ]
+  },
+  {
+    id: 'kesennuma', name: '気仙沼市', prefecture: '宮城県',
+    lat: 38.907, lng: 141.569, color: '#7b1fa2',
+    links: [
+      { label: 'KumaWatch – 気仙沼市の出没情報マップ', badge: 'KW', cls: 'badge-kuma',
+        url: 'https://kuma-watch.jp/place/%E5%AE%AE%E5%9F%8E%E7%9C%8C/%E6%B0%97%E4%BB%99%E6%B2%BC%E5%B8%82' },
+      { label: 'クママップ – 気仙沼市', badge: 'MM', cls: 'badge-kumamap',
+        url: 'https://kumamap.com/ja/areas/miyagi/kesennuma' },
+      { label: '宮城県 – 気仙沼地方振興事務所 クマ情報', badge: '宮', cls: 'badge-pref',
+        url: 'https://www.pref.miyagi.jp/soshiki/ks-tihouken-r/kuma-kesennuma2024.html' },
+      { label: '宮城県 – クマ目撃等情報', badge: '宮', cls: 'badge-pref',
+        url: 'https://www.pref.miyagi.jp/soshiki/sizenhogo/r7kuma.html' }
+    ]
+  }
+];
+
+const AREA_MAP = Object.fromEntries(AREAS.map(a => [a.id, a]));
+const LS_KEY = 'bear_sightings_v1';
+
+/* ── localStorage ── */
+function loadSightings() {
+  try { return JSON.parse(localStorage.getItem(LS_KEY)) || []; }
+  catch { return []; }
+}
+function saveSightings(list) {
+  localStorage.setItem(LS_KEY, JSON.stringify(list));
+}
+
+/* ── 地図 ── */
+const map = L.map('map', { zoomControl: true }).setView([39.02, 141.62], 10);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+  maxZoom: 18
+}).addTo(map);
+
+/* エリアアイコン */
+function makeAreaIcon() {
+  return L.divIcon({
+    className: '',
+    html: `<div style="background:#c0392b;width:42px;height:42px;border-radius:50%;
+      display:flex;align-items:center;justify-content:center;
+      border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.35)">
+      <img src="./bear.png" style="width:28px;height:28px;display:block;" /></div>`,
+    iconSize: [42, 42], iconAnchor: [21, 21], popupAnchor: [0, -24]
+  });
+}
+
+/* 出没情報アイコン */
+function makeSightingIcon() {
+  return L.icon({
+    iconUrl: './bear.png',
+    iconSize: [36, 36],
+    iconAnchor: [18, 18],
+    popupAnchor: [0, -20]
+  });
+}
+
+/* エリアマーカー */
+const areaLeafletMarkers = {};
+AREAS.forEach(area => {
+  const marker = L.marker([area.lat, area.lng], { icon: makeAreaIcon() }).addTo(map);
+  const linksHtml = area.links.map(l =>
+    `<a class="popup-link" href="${l.url}" target="_blank" rel="noopener">→ ${l.label}</a>`
+  ).join('');
+  marker.bindPopup(`
+    <div class="popup-title">${area.name}</div>
+    <div class="popup-sub">${area.prefecture}</div>
+    ${linksHtml}
+  `, { maxWidth: 260 });
+  marker.on('click', () => {
+    openAreaCard(area.id);
+  });
+  areaLeafletMarkers[area.id] = marker;
+});
+
+/* ── 出没情報マーカー管理 ── */
+const sightingMarkers = {};
+
+function addSightingMarker(s) {
+  if (!s.lat || !s.lng) return;
+  const area = AREA_MAP[s.areaId];
+  const marker = L.marker([s.lat, s.lng], { icon: makeSightingIcon() }).addTo(map);
+
+  const dtStr = s.datetime ? new Date(s.datetime).toLocaleString('ja-JP', { month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit' }) : '日時不明';
+
+  marker.bindPopup(() => {
+    const div = document.createElement('div');
+    div.innerHTML = `
+      <div class="popup-title">⚠️ 熊出没</div>
+      <div class="popup-sub">${area ? area.name : ''}　${dtStr}</div>
+      ${s.location ? `<div style="font-size:0.78rem;margin-bottom:3px">${s.location}</div>` : ''}
+      ${s.detail ? `<div style="font-size:0.78rem;color:#555">${s.detail}</div>` : ''}
+    `;
+    const delBtn = document.createElement('button');
+    delBtn.className = 'popup-delete-btn';
+    delBtn.textContent = '🗑️ この情報を削除';
+    delBtn.addEventListener('click', () => { deleteSighting(s.id); });
+    div.appendChild(delBtn);
+    return div;
+  }, { maxWidth: 240 });
+
+  sightingMarkers[s.id] = marker;
+}
+
+function removeSightingMarker(id) {
+  if (sightingMarkers[id]) {
+    map.removeLayer(sightingMarkers[id]);
+    delete sightingMarkers[id];
+  }
+}
+
+/* ── 出没情報 CRUD ── */
+function deleteSighting(id) {
+  const list = loadSightings().filter(s => s.id !== id);
+  saveSightings(list);
+  removeSightingMarker(id);
+  renderSightingList();
+  updateAreaCardCounts();
+  map.closePopup();
+}
+
+function addSighting(s) {
+  const list = loadSightings();
+  list.unshift(s);
+  saveSightings(list);
+  addSightingMarker(s);
+  renderSightingList();
+  updateAreaCardCounts();
+}
+
+/* ── エリアカード ── */
+function openAreaCard(id) {
+  document.querySelectorAll('.area-card').forEach(c => c.classList.remove('active', 'open'));
+  const card = document.getElementById(`card-${id}`);
+  if (card) {
+    card.classList.add('active', 'open');
+    // エリアタブを表示
+    switchTab('areas');
+    card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+}
+
+function updateAreaCardCounts() {
+  const list = loadSightings();
+  AREAS.forEach(area => {
+    const n = list.filter(s => s.areaId === area.id).length;
+    const el = document.getElementById(`count-${area.id}`);
+    if (el) {
+      el.textContent = `${n}件`;
+      el.classList.toggle('visible', n > 0);
+    }
+  });
+  // タブ見出しのカウント
+  const total = list.length;
+  const sc = document.getElementById('sidebar-count');
+  if (sc) {
+    sc.textContent = total > 0 ? `(${total})` : '';
+    sc.style.display = total > 0 ? 'inline' : 'none';
+  }
+}
+
+function renderAreaCards() {
+  const container = document.getElementById('area-cards');
+  container.innerHTML = '';
+  AREAS.forEach(area => {
+    const card = document.createElement('div');
+    card.className = 'area-card';
+    card.id = `card-${area.id}`;
+
+    const linksHtml = area.links.map(l => `
+      <a class="ext-link" href="${l.url}" target="_blank" rel="noopener">
+        <span class="link-badge ${l.cls}">${l.badge}</span>
+        <span class="ext-link-text">${l.label}</span>
+        <span class="ext-link-arrow">↗</span>
+      </a>`).join('');
+
+    card.innerHTML = `
+      <div class="card-header">
+        <span class="card-dot" style="background:${area.color}"></span>
+        <span class="card-name">${area.name}<span class="card-pref">${area.prefecture}</span></span>
+        <span class="card-count" id="count-${area.id}">0件</span>
+        <span class="card-arrow">›</span>
+      </div>
+      <div class="card-links">${linksHtml}</div>
+    `;
+
+    card.querySelector('.card-header').addEventListener('click', () => {
+      const isOpen = card.classList.contains('open');
+      document.querySelectorAll('.area-card').forEach(c => c.classList.remove('active', 'open'));
+      if (!isOpen) {
+        card.classList.add('active', 'open');
+        map.flyTo([area.lat, area.lng], 12, { duration: 0.7 });
+        areaLeafletMarkers[area.id].openPopup();
+      } else {
+        map.flyTo([39.02, 141.62], 10, { duration: 0.7 });
+      }
+    });
+
+    container.appendChild(card);
+  });
+}
+
+/* ── 出没情報リスト ── */
+function renderSightingList() {
+  const list = loadSightings();
+  const container = document.getElementById('sighting-list');
+  const bar = document.getElementById('sighting-count-bar');
+
+  bar.innerHTML = list.length > 0
+    ? `登録件数: <strong>${list.length}件</strong>`
+    : '';
+
+  if (list.length === 0) {
+    container.innerHTML = `
+      <div class="empty-msg">
+        <span class="empty-icon">📋</span>
+        出没情報がまだ登録されていません。<br>
+        「＋ 出没情報を追加」から入力できます。
+      </div>`;
+    return;
+  }
+
+  container.innerHTML = '';
+  list.forEach(s => {
+    const area = AREA_MAP[s.areaId];
+    const dtStr = s.datetime
+      ? new Date(s.datetime).toLocaleString('ja-JP', { year:'numeric', month:'narrow', day:'numeric', hour:'2-digit', minute:'2-digit' })
+      : '日時不明';
+    const item = document.createElement('div');
+    item.className = 'sighting-item';
+    item.innerHTML = `
+      <div class="s-header">
+        <span class="s-dot" style="background:${area ? area.color : '#aaa'}"></span>
+        <span class="s-area">${area ? area.name : ''}</span>
+        <span class="s-date">${dtStr}</span>
+      </div>
+      ${s.location ? `<div class="s-location">📍 ${s.location}</div>` : ''}
+      ${s.detail ? `<div class="s-detail">${s.detail}</div>` : ''}
+      <div class="s-actions">
+        ${(s.lat && s.lng) ? `<button class="s-locate-btn" data-id="${s.id}">🗺️ 地図を見る</button>` : ''}
+        <button class="s-delete-btn" data-id="${s.id}">🗑️ 削除</button>
+      </div>
+    `;
+    container.appendChild(item);
+  });
+
+  // イベント委任
+  container.querySelectorAll('.s-locate-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const s = list.find(x => x.id === btn.dataset.id);
+      if (!s) return;
+      map.flyTo([s.lat, s.lng], 15, { duration: 0.8 });
+      if (sightingMarkers[s.id]) sightingMarkers[s.id].openPopup();
+    });
+  });
+  container.querySelectorAll('.s-delete-btn').forEach(btn => {
+    btn.addEventListener('click', () => deleteSighting(btn.dataset.id));
+  });
+}
+
+/* ── タブ切り替え ── */
+function switchTab(id) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === id));
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.toggle('active', p.id === `tab-${id}`));
+}
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+});
+
+/* ── モーダル ── */
+let pickingMode = false;
+let pickedLat = null, pickedLng = null;
+
+function openModal() {
+  // 日時デフォルト（現在時刻）
+  const now = new Date();
+  now.setSeconds(0, 0);
+  document.getElementById('f-datetime').value = now.toISOString().slice(0, 16);
+  document.getElementById('f-location').value = '';
+  document.getElementById('f-detail').value = '';
+  pickedLat = null; pickedLng = null;
+  updatePosDisplay();
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('open');
+  stopPickingMode();
+}
+
+function updatePosDisplay() {
+  const el = document.getElementById('pos-display');
+  if (pickedLat !== null) {
+    el.textContent = `${pickedLat.toFixed(5)}, ${pickedLng.toFixed(5)}`;
+    el.classList.remove('unset');
+  } else {
+    el.textContent = '未設定';
+    el.classList.add('unset');
+  }
+}
+
+function startPickingMode() {
+  pickingMode = true;
+  document.getElementById('map').classList.add('picking-mode');
+  document.getElementById('map-container').classList.add('picking');
+  document.getElementById('pos-pick-btn').classList.add('picking');
+  document.getElementById('pos-pick-btn').textContent = '📍 クリック中… (もう一度押すとキャンセル)';
+}
+
+function stopPickingMode() {
+  pickingMode = false;
+  document.getElementById('map').classList.remove('picking-mode');
+  document.getElementById('map-container').classList.remove('picking');
+  const btn = document.getElementById('pos-pick-btn');
+  if (btn) {
+    btn.classList.remove('picking');
+    btn.textContent = '🗺️ 地図をクリックして位置を指定';
+  }
+}
+
+document.getElementById('open-form-btn').addEventListener('click', openModal);
+document.getElementById('modal-close').addEventListener('click', closeModal);
+document.getElementById('btn-cancel').addEventListener('click', closeModal);
+document.getElementById('modal-overlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('modal-overlay')) closeModal();
+});
+
+document.getElementById('pos-pick-btn').addEventListener('click', () => {
+  if (pickingMode) {
+    stopPickingMode();
+  } else {
+    startPickingMode();
+    // モーダルを半透明に（地図が操作しやすいよう）
+    document.getElementById('modal-overlay').style.pointerEvents = 'none';
+    document.getElementById('modal-overlay').style.background = 'rgba(0,0,0,0.15)';
+  }
+});
+
+map.on('click', e => {
+  if (!pickingMode) return;
+  pickedLat = e.latlng.lat;
+  pickedLng = e.latlng.lng;
+  updatePosDisplay();
+  stopPickingMode();
+  document.getElementById('modal-overlay').style.pointerEvents = '';
+  document.getElementById('modal-overlay').style.background = '';
+});
+
+document.getElementById('btn-submit').addEventListener('click', () => {
+  const areaId = document.getElementById('f-area').value;
+  const datetime = document.getElementById('f-datetime').value;
+  const location = document.getElementById('f-location').value.trim();
+  const detail = document.getElementById('f-detail').value.trim();
+
+  if (!datetime) { alert('日時を入力してください'); return; }
+
+  const s = {
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    areaId, datetime, location, detail,
+    lat: pickedLat, lng: pickedLng
+  };
+
+  addSighting(s);
+  closeModal();
+  switchTab('sightings');
+  if (s.lat && s.lng) {
+    map.flyTo([s.lat, s.lng], 14, { duration: 0.8 });
+    setTimeout(() => { if (sightingMarkers[s.id]) sightingMarkers[s.id].openPopup(); }, 900);
+  }
+});
+
+/* ── 時刻表示 ── */
+function updateTime() {
+  const now = new Date();
+  const mm = String(now.getMinutes()).padStart(2, '0');
+  document.getElementById('update-time').textContent =
+    `${now.getMonth()+1}/${now.getDate()} ${now.getHours()}:${mm}`;
+}
+updateTime();
+setInterval(updateTime, 60000);
+
+/* ── PDF インポート ── */
+document.getElementById('pdf-import-btn').addEventListener('click', () => {
+  document.getElementById('pdf-file-input').click();
+});
+document.getElementById('pdf-file-input').addEventListener('change', async e => {
+  const file = e.target.files[0];
+  if (file) await importFromPDF(file);
+  e.target.value = '';
+});
+document.getElementById('miyagi-pdf-import-btn').addEventListener('click', () => {
+  document.getElementById('miyagi-pdf-file-input').click();
+});
+document.getElementById('miyagi-pdf-file-input').addEventListener('change', async e => {
+  const file = e.target.files[0];
+  if (file) await importFromMiyagiPDF(file);
+  e.target.value = '';
+});
+document.getElementById('sumita-pdf-import-btn').addEventListener('click', () => {
+  document.getElementById('sumita-pdf-file-input').click();
+});
+document.getElementById('sumita-pdf-file-input').addEventListener('change', async e => {
+  const file = e.target.files[0];
+  if (file) await importFromSumitaPDF(file);
+  e.target.value = '';
+});
+
+async function loadPdfJs() {
+  if (window.pdfjsLib) return;
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+    s.onload = () => {
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+        'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      resolve();
+    };
+    s.onerror = reject;
+    document.head.appendChild(s);
+  });
+}
+
+function toHalf(str) {
+  return str
+    .replace(/[！-～]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0))
+    .replace(/　/g, ' ');
+}
+
+async function importFromPDF(file) {
+  const prog = document.getElementById('pdf-progress');
+  const show = msg => { prog.style.display = 'block'; prog.textContent = msg; };
+
+  try {
+    show('PDF.js を読み込み中…');
+    await loadPdfJs();
+
+    show('PDF を解析中…');
+    const buf = await file.arrayBuffer();
+    const pdf = await window.pdfjsLib.getDocument({ data: new Uint8Array(buf) }).promise;
+
+    const allItems = [];
+    for (let p = 1; p <= pdf.numPages; p++) {
+      const page = await pdf.getPage(p);
+      const vp = page.getViewport({ scale: 1 });
+      const content = await page.getTextContent();
+      content.items.forEach(item => {
+        const text = toHalf(item.str).trim();
+        if (!text) return;
+        allItems.push({
+          text,
+          x: Math.round(item.transform[4]),
+          // ページごとにY座標をオフセットして順序を保つ
+          y: Math.round(vp.height - item.transform[5]) + (p - 1) * 10000,
+        });
+      });
+    }
+
+    // Y座標でグループ化して行を復元
+    const YTOL = 4;
+    const grouped = {};
+    allItems.forEach(it => {
+      const ky = Math.round(it.y / YTOL) * YTOL;
+      if (!grouped[ky]) grouped[ky] = [];
+      grouped[ky].push(it);
+    });
+    const rows = Object.entries(grouped)
+      .sort((a, b) => Number(a[0]) - Number(b[0]))
+      .map(([, items]) => items.sort((a, b) => a.x - b.x).map(i => i.text));
+
+    const sightings = parseRikuzentakataRows(rows);
+    if (sightings.length === 0) {
+      show('⚠️ 陸前高田市の目撃一覧PDF形式が認識できませんでした。');
+      return;
+    }
+
+    let geo = 0;
+    for (let i = 0; i < sightings.length; i++) {
+      show(`ジオコーディング中… (${i + 1}/${sightings.length}件)`);
+      const s = sightings[i];
+      const loc = s.location.split(/[\s　]/)[0]; // 「横田町字橋の上 林道…」の最初の部分
+      const coords = await geocodeGSI(`岩手県陸前高田市${loc}`);
+      if (coords) { s.lat = coords.lat; s.lng = coords.lng; geo++; }
+      await sleep(500);
+    }
+
+    const toAdd = sightings.map(s => ({
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+      areaId: 'rikuzentakata',
+      datetime: s.datetime,
+      location: s.location,
+      detail: `[${s.type}${s.count ? ' ' + s.count + '頭' : ''}] ${s.detail}`.trim(),
+      lat: s.lat,
+      lng: s.lng,
+    }));
+
+    const existing = loadSightings();
+    saveSightings([...toAdd, ...existing]);
+    toAdd.forEach(s => addSightingMarker(s));
+    renderSightingList();
+    updateAreaCardCounts();
+    switchTab('sightings');
+
+    show(`✅ ${sightings.length}件を登録しました（位置情報取得: ${geo}件）`);
+    setTimeout(() => { prog.style.display = 'none'; }, 5000);
+
+  } catch (e) {
+    show(`❌ エラー: ${e.message}`);
+    console.error(e);
+  }
+}
+
+function parseRikuzentakataRows(rows) {
+  const dateRe = /令和(\d+)年(\d+)月(\d+)日/;
+  const timeRe = /^\d{1,2}:\d{2}$/;
+  const typeRe = /^(目撃|痕跡|捕獲)$/;
+  const sightings = [];
+  let current = null;
+
+  rows.forEach(cols => {
+    const line = cols.join(' ');
+    const dm = line.match(dateRe);
+
+    if (dm) {
+      if (current) sightings.push(current);
+
+      const year = 2018 + parseInt(dm[1]);
+      const month = String(parseInt(dm[2])).padStart(2, '0');
+      const day   = String(parseInt(dm[3])).padStart(2, '0');
+
+      const timeCol  = cols.find(c => timeRe.test(c)) || '';
+      const [th, tm] = timeCol ? timeCol.split(':') : ['00', '00'];
+      const datetime = `${year}-${month}-${day}T${String(th).padStart(2,'0')}:${String(tm).padStart(2,'0')}`;
+
+      const typeIdx = cols.findIndex(c => typeRe.test(c));
+      const type    = typeIdx >= 0 ? cols[typeIdx] : '';
+      const count   = (typeIdx >= 0 && /^\d+$/.test(cols[typeIdx + 1])) ? cols[typeIdx + 1] : '';
+      const timeIdx = cols.findIndex(c => timeRe.test(c));
+      const locCols = cols.slice(timeIdx >= 0 ? timeIdx + 1 : 0, typeIdx >= 0 ? typeIdx : cols.length);
+      const location = locCols.join('').trim();
+      const detail   = cols.slice(typeIdx + (count ? 2 : 1)).join(' ').trim();
+
+      current = { datetime, location, type, count, detail, lat: null, lng: null };
+
+    } else if (current) {
+      // 状況の続き行（ヘッダー・集計行などを除外）
+      const skip =
+        line.length < 2 ||
+        /^[\d\s\/]+$/.test(line) ||
+        /ページ/.test(line) ||
+        /発生日|時刻|場所|区分|頭数|状況/.test(line) ||
+        /件\s*数|目\s*撃|痕\s*跡|農作物|捕\s*獲/.test(line) ||
+        /令和\d+年度/.test(line) ||       // 「令和8年度」など年度表記
+        /年8月\d+日\s*現在/.test(line) || // 「8月31日 現在」
+        /目撃等一覧/.test(line) ||
+        /^\d+件\s*\d+件/.test(line) ||    // 「36件 5件 0件…」
+        /No\.?\s*$/.test(line);
+      if (!skip) current.detail += ' ' + line;
+    }
+  });
+
+  if (current) sightings.push(current);
+  return sightings.filter(s => s.location && s.type);
+}
+
+async function importFromSumitaPDF(file) {
+  const prog = document.getElementById('sumita-pdf-progress');
+  const show = msg => { prog.style.display = 'block'; prog.textContent = msg; };
+
+  try {
+    show('PDF.js を読み込み中…');
+    await loadPdfJs();
+
+    show('PDF を解析中…');
+    const buf = await file.arrayBuffer();
+    const pdf = await window.pdfjsLib.getDocument({ data: new Uint8Array(buf) }).promise;
+
+    const allItems = [];
+    for (let p = 1; p <= pdf.numPages; p++) {
+      const page = await pdf.getPage(p);
+      const vp = page.getViewport({ scale: 1 });
+      const content = await page.getTextContent();
+      content.items.forEach(item => {
+        const text = toHalf(item.str).trim();
+        if (!text) return;
+        allItems.push({
+          text,
+          x: Math.round(item.transform[4]),
+          y: Math.round(vp.height - item.transform[5]) + (p - 1) * 10000,
+        });
+      });
+    }
+
+    const YTOL = 4;
+    const grouped = {};
+    allItems.forEach(it => {
+      const ky = Math.round(it.y / YTOL) * YTOL;
+      if (!grouped[ky]) grouped[ky] = [];
+      grouped[ky].push(it);
+    });
+    const rows = Object.entries(grouped)
+      .sort((a, b) => Number(a[0]) - Number(b[0]))
+      .map(([, items]) => items.sort((a, b) => a.x - b.x).map(i => i.text));
+
+    const sightings = parseSumitaRows(rows);
+    if (sightings.length === 0) {
+      show('⚠️ 住田町の出没状況一覧表PDF形式が認識できませんでした。');
+      return;
+    }
+
+    let geo = 0;
+    for (let i = 0; i < sightings.length; i++) {
+      show(`ジオコーディング中… (${i + 1}/${sightings.length}件)`);
+      const s = sightings[i];
+      const coords = await geocodeGSI(`岩手県住田町${s.location}`);
+      if (coords) { s.lat = coords.lat; s.lng = coords.lng; geo++; }
+      await sleep(500);
+    }
+
+    const toAdd = sightings.map(s => ({
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+      areaId: 'sumita',
+      datetime: s.datetime,
+      location: s.location,
+      detail: `[${s.type}${s.count ? ' ' + s.count : ''}]${s.detail ? ' ' + s.detail : ''}`.trim(),
+      lat: s.lat,
+      lng: s.lng,
+    }));
+
+    const existing = loadSightings();
+    saveSightings([...toAdd, ...existing]);
+    toAdd.forEach(s => addSightingMarker(s));
+    renderSightingList();
+    updateAreaCardCounts();
+    switchTab('sightings');
+
+    show(`✅ 住田町 ${sightings.length}件を登録しました（位置情報取得: ${geo}件）`);
+    setTimeout(() => { prog.style.display = 'none'; }, 5000);
+
+  } catch (e) {
+    show(`❌ エラー: ${e.message}`);
+    console.error(e);
+  }
+}
+
+function parseSumitaRows(rows) {
+  // PDF列構造: [No., 日付, "HH:MM 住田町" or "住田町", 地区, N頭, 種別, 状況...]
+  // 時刻と住田町が同一テキスト項目に結合されているため専用パターンで抽出
+  const dateRe  = /令和(\d+)年(\d+)月(\d+)日/;
+  const typeRe  = /^(目撃|痕跡|捕獲|農林被害)$/;
+  const countRe = /^\d+頭$/;
+  const sightings = [];
+  let current = null;
+
+  rows.forEach(cols => {
+    const line = cols.join(' ');
+    const dm = line.match(dateRe);
+
+    if (dm) {
+      if (current) sightings.push(current);
+
+      const year  = 2018 + parseInt(dm[1]);
+      const month = String(parseInt(dm[2])).padStart(2, '0');
+      const day   = String(parseInt(dm[3])).padStart(2, '0');
+
+      // cols[2]: "HH:MM 住田町" or "住田町"
+      const col2 = cols[2] || '';
+      const tmMatch = col2.match(/^(\d{1,2}):(\d{2})/);
+      const th = tmMatch ? tmMatch[1].padStart(2, '0') : '00';
+      const tm = tmMatch ? tmMatch[2] : '00';
+      const datetime = `${year}-${month}-${day}T${th}:${tm}`;
+
+      const typeIdx  = cols.findIndex(c => typeRe.test(c));
+      const type     = typeIdx >= 0 ? cols[typeIdx] : '';
+      const countIdx = typeIdx >= 0
+        ? cols.findIndex((c, i) => i < typeIdx && countRe.test(c))
+        : -1;
+      const count    = countIdx >= 0 ? cols[countIdx] : '';
+
+      // 地区: col2の次(index 3)からcountIdx手前まで
+      const locEnd = countIdx >= 3 ? countIdx : (typeIdx >= 3 ? typeIdx : cols.length);
+      const location = cols.slice(3, locEnd).join('').trim();
+
+      const detail = typeIdx >= 0 ? cols.slice(typeIdx + 1).join(' ').trim() : '';
+
+      current = { datetime, location, type, count, detail, lat: null, lng: null };
+
+    } else if (current) {
+      const skip =
+        line.length < 2 ||
+        /^[\d\s\/]+$/.test(line) ||
+        /ページ|No\.|発生日|時刻|住所|頭数|状況等/.test(line) ||
+        /令和\d+年度/.test(line) ||
+        /ツキノワグマ出没状況|市町村/.test(line);
+      if (!skip) current.detail = (current.detail + ' ' + line).trim();
+    }
+  });
+
+  if (current) sightings.push(current);
+  return sightings.filter(s => s.location && s.type);
+}
+
+async function importFromMiyagiPDF(file) {
+  const prog = document.getElementById('miyagi-pdf-progress');
+  const show = msg => { prog.style.display = 'block'; prog.textContent = msg; };
+
+  try {
+    show('PDF.js を読み込み中…');
+    await loadPdfJs();
+
+    show('PDF を解析中…');
+    const buf = await file.arrayBuffer();
+    const pdf = await window.pdfjsLib.getDocument({ data: new Uint8Array(buf) }).promise;
+
+    const allItems = [];
+    for (let p = 1; p <= pdf.numPages; p++) {
+      const page = await pdf.getPage(p);
+      const vp = page.getViewport({ scale: 1 });
+      const content = await page.getTextContent();
+      content.items.forEach(item => {
+        const text = toHalf(item.str).trim();
+        if (!text) return;
+        allItems.push({
+          text,
+          x: Math.round(item.transform[4]),
+          y: Math.round(vp.height - item.transform[5]) + (p - 1) * 10000,
+        });
+      });
+    }
+
+    const YTOL = 4;
+    const grouped = {};
+    allItems.forEach(it => {
+      const ky = Math.round(it.y / YTOL) * YTOL;
+      if (!grouped[ky]) grouped[ky] = [];
+      grouped[ky].push(it);
+    });
+    const rows = Object.entries(grouped)
+      .sort((a, b) => Number(a[0]) - Number(b[0]))
+      .map(([, items]) => items.sort((a, b) => a.x - b.x).map(i => i.text));
+
+    const sightings = parseMiyagiKesennumaRows(rows);
+    if (sightings.length === 0) {
+      show('⚠️ 宮城県の目撃情報集計表PDF形式が認識できませんでした。');
+      return;
+    }
+
+    let geo = 0;
+    for (let i = 0; i < sightings.length; i++) {
+      show(`ジオコーディング中… (${i + 1}/${sightings.length}件)`);
+      const s = sightings[i];
+      const coords = await geocodeGSI(`宮城県気仙沼市${s.location}`);
+      if (coords) { s.lat = coords.lat; s.lng = coords.lng; geo++; }
+      await sleep(500);
+    }
+
+    const toAdd = sightings.map(s => ({
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+      areaId: 'kesennuma',
+      datetime: s.datetime,
+      location: s.location,
+      detail: `[${s.type}${s.count ? ' ' + s.count : ''}]`,
+      lat: s.lat,
+      lng: s.lng,
+    }));
+
+    const existing = loadSightings();
+    saveSightings([...toAdd, ...existing]);
+    toAdd.forEach(s => addSightingMarker(s));
+    renderSightingList();
+    updateAreaCardCounts();
+    switchTab('sightings');
+
+    show(`✅ 気仙沼市 ${sightings.length}件を登録しました（位置情報取得: ${geo}件）`);
+    setTimeout(() => { prog.style.display = 'none'; }, 5000);
+
+  } catch (e) {
+    show(`❌ エラー: ${e.message}`);
+    console.error(e);
+  }
+}
+
+function parseMiyagiKesennumaRows(rows) {
+  const numRe    = /^\d+$/;
+  const mRe      = /^([1-9]|1[0-2])$/;
+  const dRe      = /^([1-9]|[12]\d|3[01])$/;
+  const timeRe   = /^\d{1,2}:\d{2}$/;
+  const countRe  = /^\d+頭$|^不明$/;
+  const typeRe   = /^(目撃|痕跡|捕獲)$/;
+  const year     = 2026;
+  const sightings = [];
+  const seenNums  = new Set();
+
+  rows.forEach(cols => {
+    if (cols.length < 6) return;
+
+    // 行内に '気仙沼市' が含まれる行のみ対象
+    const muniIdx = cols.indexOf('気仙沼市');
+    if (muniIdx < 0) return;
+
+    // 重複除去：先頭の番号で管理
+    const numStr = cols[0];
+    if (numRe.test(numStr)) {
+      if (seenNums.has(numStr)) return;
+      seenNums.add(numStr);
+    }
+
+    // 列構造: 番号, 月, 日, 時刻, 事務所, 気仙沼市, 地区, 発見頭数, 区分
+    //         muniIdx-5  -4  -3   -2     -1         0    +1     +2       +3
+    const monthIdx = muniIdx - 4;
+    const dayIdx   = muniIdx - 3;
+    const timeIdx  = muniIdx - 2;
+    if (monthIdx < 0 || dayIdx < 0) return;
+
+    const monthStr = cols[monthIdx];
+    const dayStr   = cols[dayIdx];
+    if (!mRe.test(monthStr) || !dRe.test(dayStr)) return;
+
+    const month = monthStr.padStart(2, '0');
+    const day   = dayStr.padStart(2, '0');
+    const timeStr = timeIdx >= 0 ? (cols[timeIdx] || '') : '';
+    let hours = '00', mins = '00';
+    if (timeRe.test(timeStr)) [hours, mins] = timeStr.split(':').map(s => s.padStart(2, '0'));
+
+    const datetime = `${year}-${month}-${day}T${hours}:${mins}`;
+
+    // 地区 から 区分 の手前まで
+    const typeIdx2 = cols.findIndex(c => typeRe.test(c));
+    if (typeIdx2 < 0 || typeIdx2 <= muniIdx) return;
+
+    const between = cols.slice(muniIdx + 1, typeIdx2);
+    let count = '';
+    if (between.length > 0 && countRe.test(between[between.length - 1])) {
+      count = between.pop();
+    }
+    const location = between.join('').trim();
+    const type = cols[typeIdx2];
+
+    if (!location || !type) return;
+
+    sightings.push({ datetime, location, count, type, lat: null, lng: null });
+  });
+
+  return sightings;
+}
+
+async function geocodeGSI(address) {
+  try {
+    const res = await fetch(
+      `https://msearch.gsi.go.jp/address-search/AddressSearch?q=${encodeURIComponent(address)}`
+    );
+    const data = await res.json();
+    if (data.length > 0) {
+      const [lng, lat] = data[0].geometry.coordinates;
+      return { lat, lng };
+    }
+  } catch {}
+  return null;
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+/* ── 初期化 ── */
+renderAreaCards();
+loadSightings().forEach(s => addSightingMarker(s));
+renderSightingList();
+updateAreaCardCounts();
+</script>
 </body>
 </html>
